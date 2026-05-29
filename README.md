@@ -1,2 +1,0 @@
-# einkaufszettel
-einkaufszettel
