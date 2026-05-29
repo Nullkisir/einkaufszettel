@@ -329,9 +329,64 @@ function makeItem(item) {
   return el;
 }
 
+// Parse a quantity+unit+name from text like "200g Kartoffeln", "2 Zwiebeln", "Brot"
+function parseItem(text) {
+  const t = text.trim();
+  // Match: optional number (int or decimal), optional unit, rest is name
+  const m = t.match(/^([\d]+(?:[.,]\d+)?)\s*(ml|l|g|kg|el|tl|st|stk|stück|cm|mm|pck|pckg|pkg|dose|dosen|tasse|tassen|bund|bd|pkg|packung|packungen|becher|scheibe|scheiben|zehe|zehen|%)?\s*(.+)$/i);
+  if (m) {
+    const qty = parseFloat(m[1].replace(',', '.'));
+    const unit = m[2] ? m[2].toLowerCase() : '';
+    const name = m[3].trim();
+    return { qty, unit, name };
+  }
+  return { qty: null, unit: '', name: t };
+}
+
+function formatItem(qty, unit, name) {
+  if (qty === null) return name;
+  const rounded = qty % 1 === 0 ? qty : parseFloat(qty.toFixed(1));
+  return unit ? rounded + unit + ' ' + name : rounded + ' ' + name;
+}
+
+function normalizeUnit(u) { return (u||'').toLowerCase().trim(); }
+
 function addItemToList(text) {
   if (!text) return false;
-  if (items.some(i => i.text.toLowerCase() === text.toLowerCase() && !i.done)) return false;
+  const parsed = parseItem(text);
+
+  // Try to find existing undone item with same name (and compatible unit)
+  const existing = items.find(i => {
+    if (i.done) return false;
+    const ep = parseItem(i.text);
+    if (ep.name.toLowerCase() !== parsed.name.toLowerCase()) return false;
+    // Both have quantities and same unit → can merge
+    if (parsed.qty !== null && ep.qty !== null && normalizeUnit(parsed.unit) === normalizeUnit(ep.unit)) return true;
+    // Both have no quantity → same item
+    if (parsed.qty === null && ep.qty === null) return true;
+    // x2 style (no unit, both have qty)
+    if (parsed.qty !== null && ep.qty !== null && parsed.unit === '' && ep.unit === '') return true;
+    return false;
+  });
+
+  if (existing) {
+    const ep = parseItem(existing.text);
+    if (parsed.qty !== null && ep.qty !== null) {
+      // Merge quantities
+      const newQty = ep.qty + parsed.qty;
+      existing.text = formatItem(newQty, ep.unit, ep.name);
+    } else {
+      // No quantity: add x2, x3 counter
+      const xm = existing.text.match(/^(.+?)\s+x(\d+)$/i);
+      if (xm) {
+        existing.text = xm[1] + ' x' + (parseInt(xm[2]) + 1);
+      } else {
+        existing.text = existing.text + ' x2';
+      }
+    }
+    return true;
+  }
+
   items.unshift({ id: nextId++, text, done: false });
   return true;
 }
