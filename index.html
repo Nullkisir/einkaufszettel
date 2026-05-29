@@ -274,7 +274,8 @@ function shouldFilter(zutat) {
 }
 
 function parseZutaten(text) {
-  return text.split('\n').map(l => l.trim()).filter(l => l.length > 0).filter(l => !shouldFilter(l));
+  // Keep ALL ingredients in the recipe - filtering only happens when adding to shopping list
+  return text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 }
 
 const SK = 'einkauf_v1', RK = 'rezepte_v2';
@@ -382,12 +383,17 @@ function parseItem(text) {
     return { qty, unit: '', name };
   }
 
+  // Format D: "Brot x2" style (legacy or no-unit counter)
+  const mX = t.match(/^(.+?)\s+x(\d+)$/i);
+  if (mX) return { qty: parseInt(mX[2]), unit: 'x', name: mX[1].trim() };
+
   return { qty: null, unit: '', name: t };
 }
 
 function formatItem(qty, unit, name) {
   if (qty === null) return name;
   const rounded = qty % 1 === 0 ? qty : parseFloat(qty.toFixed(1));
+  if (unit === 'x') return name + (rounded > 1 ? ' x' + rounded : '');
   return unit ? rounded + unit + ' ' + name : rounded + ' ' + name;
 }
 
@@ -402,29 +408,27 @@ function addItemToList(text) {
     if (i.done) return false;
     const ep = parseItem(i.text);
     if (ep.name.toLowerCase() !== parsed.name.toLowerCase()) return false;
-    // Both have quantities and same unit → can merge
-    if (parsed.qty !== null && ep.qty !== null && normalizeUnit(parsed.unit) === normalizeUnit(ep.unit)) return true;
-    // Both have no quantity → same item
+    // Both have real quantities with same unit → merge
+    if (parsed.qty !== null && ep.qty !== null && ep.unit !== 'x' && normalizeUnit(parsed.unit) === normalizeUnit(ep.unit)) return true;
+    // Both have no quantity → same item (will get x2 counter)
     if (parsed.qty === null && ep.qty === null) return true;
-    // x2 style (no unit, both have qty)
+    // New item has no qty, existing is already a x-counter → increment counter
+    if (parsed.qty === null && ep.unit === 'x') return true;
+    // New item has no qty and no unit, existing also no unit → x-counter
     if (parsed.qty !== null && ep.qty !== null && parsed.unit === '' && ep.unit === '') return true;
     return false;
   });
 
   if (existing) {
     const ep = parseItem(existing.text);
-    if (parsed.qty !== null && ep.qty !== null) {
-      // Merge quantities
-      const newQty = ep.qty + parsed.qty;
-      existing.text = formatItem(newQty, ep.unit, ep.name);
+    if (parsed.qty !== null && ep.qty !== null && ep.unit !== 'x') {
+      // Merge real quantities
+      existing.text = formatItem(ep.qty + parsed.qty, ep.unit, ep.name);
     } else {
-      // No quantity: add x2, x3 counter
+      // No-unit counter: x2, x3...
       const xm = existing.text.match(/^(.+?)\s+x(\d+)$/i);
-      if (xm) {
-        existing.text = xm[1] + ' x' + (parseInt(xm[2]) + 1);
-      } else {
-        existing.text = existing.text + ' x2';
-      }
+      if (xm) existing.text = xm[1] + ' x' + (parseInt(xm[2]) + 1);
+      else existing.text = existing.text + ' x2';
     }
     return true;
   }
@@ -638,6 +642,7 @@ document.getElementById('portionConfirm').addEventListener('click', () => {
   const factor = portionCount;
   let added = 0;
   (portionRezept.zutaten || []).forEach(z => {
+    if (shouldFilter(z)) return; // filter Wasser, Salz, Pfeffer, Öl here
     let scaledText = z;
     if (factor !== 1) {
       const p = parseItem(z);
