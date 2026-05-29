@@ -146,14 +146,16 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .modal-save { flex: 2; height: 48px; border-radius: var(--radius-sm); border: none; background: var(--green); color: #fff; font-family: var(--font); font-size: 15px; font-weight: 700; cursor: pointer; }
 .modal-save:active { background: var(--green-dark); }
 
-.search-wrap { padding: 12px 16px 0; background: var(--bg); position: sticky; top: 0; z-index: 5; }
-.search-input-wrap { position: relative; margin-bottom: 4px; }
-.search-input-wrap input { width: 100%; height: 42px; border: 1.5px solid var(--border); border-radius: 30px; padding: 0 16px 0 40px; font-family: var(--font); font-size: 15px; background: var(--card); color: var(--text); outline: none; }
-.search-input-wrap input:focus { border-color: var(--green); }
-.search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 17px; pointer-events: none; }
-.search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--text-faint); color: var(--card); font-size: 14px; cursor: pointer; display: none; align-items: center; justify-content: center; font-weight: 700; }
-.search-clear.visible { display: flex; }
-.search-count { font-size: 12px; color: var(--text-faint); padding: 4px 4px 8px; }
+.search-row { display: none; gap: 8px; margin-bottom: 14px; align-items: center; }
+.search-row.visible { display: flex; }
+.search-row-inner { flex: 1; position: relative; }
+.search-row-inner input { width: 100%; height: 44px; border: none; border-radius: var(--radius-sm); padding: 0 36px 0 40px; font-family: var(--font); font-size: 15px; font-weight: 500; background: rgba(255,255,255,0.18); color: #fff; outline: none; caret-color: #fff; }
+.search-row-inner input::placeholder { color: rgba(255,255,255,0.55); }
+.search-row-inner input:focus { background: rgba(255,255,255,0.25); }
+.search-row-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; }
+.search-row-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 50%; border: none; background: rgba(255,255,255,0.3); color: #fff; font-size: 14px; cursor: pointer; display: none; align-items: center; justify-content: center; font-weight: 700; line-height: 1; }
+.search-row-clear.visible { display: flex; }
+.search-count { font-size: 12px; color: rgba(255,255,255,0.7); padding: 0 2px 10px; min-height: 22px; }
 
 .offline-banner { display: none; background: #BA7517; color: #fff; text-align: center; font-size: 13px; font-weight: 600; padding: 6px; }
 body.offline .offline-banner { display: block; }
@@ -172,6 +174,14 @@ body.offline .offline-banner { display: block; }
     <input type="text" id="newItem" placeholder="Artikel hinzufügen…" maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false">
     <button class="add-btn" id="addBtn">+</button>
   </div>
+  <div class="search-row" id="searchRow">
+    <div class="search-row-inner">
+      <span class="search-row-icon">🔍</span>
+      <input type="text" id="rezeptSearch" placeholder="Rezept oder Zutat suchen…" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="search-row-clear" id="searchClear">×</button>
+    </div>
+  </div>
+  <div class="search-count" id="searchCount"></div>
   <div class="progress-bar-wrap" id="progressWrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
   <div class="tabs">
     <div class="tab active" data-tab="einkauf">🛒 Einkauf</div>
@@ -180,7 +190,7 @@ body.offline .offline-banner { display: block; }
 </div>
 
 <div class="page active" id="page-einkauf"><div id="listWrap"></div></div>
-<div class="page" id="page-rezepte"><div class="search-wrap"><div class="search-input-wrap"><span class="search-icon">🔍</span><input type="text" id="rezeptSearch" placeholder="Rezept suchen…" autocomplete="off" autocorrect="off" spellcheck="false"><button class="search-clear" id="searchClear">&times;</button></div><div class="search-count" id="searchCount"></div></div><div id="rezepteWrap"></div></div>
+<div class="page" id="page-rezepte"><div id="rezepteWrap"></div></div>
 
 <div class="bottom-bar" id="bottomEinkauf">
   <button class="clear-btn" id="clearDoneBtn" disabled>🗑 Erledigt löschen</button>
@@ -277,6 +287,8 @@ document.querySelectorAll('.tab').forEach(tab => {
     const isEinkauf = currentTab === 'einkauf';
     document.getElementById('addRowEinkauf').style.display = isEinkauf ? 'flex' : 'none';
     document.getElementById('progressWrap').style.display  = isEinkauf ? 'block' : 'none';
+    document.getElementById('searchCount').style.display   = isEinkauf ? 'none' : 'block';
+    document.getElementById('searchRow').classList.toggle('visible', !isEinkauf);
     document.getElementById('bottomEinkauf').classList.toggle('hidden', !isEinkauf);
     document.getElementById('bottomRezepte').classList.toggle('hidden', isEinkauf);
     if (!isEinkauf) renderRezepte(); else renderList();
@@ -378,19 +390,15 @@ function renderRezepte() {
   filtered.forEach(r => wrap.appendChild(makeRezeptCard(r)));
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const searchInput = document.getElementById('rezeptSearch');
-  const clearBtn = document.getElementById('searchClear');
-  searchInput.addEventListener('input', () => {
-    searchQuery = searchInput.value;
-    renderRezepte();
-  });
-  clearBtn.addEventListener('click', () => {
-    searchQuery = '';
-    searchInput.value = '';
-    searchInput.focus();
-    renderRezepte();
-  });
+document.getElementById('rezeptSearch').addEventListener('input', function() {
+  searchQuery = this.value;
+  renderRezepte();
+});
+document.getElementById('searchClear').addEventListener('click', function() {
+  searchQuery = '';
+  document.getElementById('rezeptSearch').value = '';
+  document.getElementById('rezeptSearch').focus();
+  renderRezepte();
 });
 
 function makeRezeptCard(r) {
