@@ -1,4 +1,4 @@
-const CACHE = 'einkauf-v4';
+const CACHE = 'einkauf-v5';
 const BASE = '/einkaufszettel';
 const FILES = [
   BASE + '/',
