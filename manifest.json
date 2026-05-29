@@ -2,14 +2,14 @@
   "name": "Einkaufszettel",
   "short_name": "Einkauf",
   "description": "Einfacher Einkaufszettel fürs Handy",
-  "start_url": "/",
+  "start_url": "/einkaufszettel/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0F6E56",
   "theme_color": "#0F6E56",
   "icons": [
     {
-      "src": "icon.svg",
+      "src": "/einkaufszettel/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

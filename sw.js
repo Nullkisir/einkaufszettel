@@ -1,8 +1,10 @@
-const CACHE = 'einkauf-v1';
+const CACHE = 'einkauf-v2';
+const BASE = '/einkaufszettel';
 const FILES = [
-  '/',
-  '/index.html',
-  '/manifest.json',
+  BASE + '/',
+  BASE + '/index.html',
+  BASE + '/manifest.json',
+  BASE + '/icon.svg',
   'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap',
 ];
 
@@ -29,7 +31,7 @@ self.addEventListener('fetch', e => {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
         return res;
-      }).catch(() => caches.match('/index.html'));
+      }).catch(() => caches.match(BASE + '/index.html'));
     })
   );
 });
